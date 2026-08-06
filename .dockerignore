@@ -1,0 +1,17 @@
+build/
+.gradle/
+.git/
+.gitignore
+.idea/
+*.iml
+*.iws
+*.ipr
+.DS_Store
+*.log
+*.jar
+target/
+.env
+.env.local
+node_modules/
+dist/
+

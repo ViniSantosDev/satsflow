@@ -1,0 +1,246 @@
+{
+  "info": {
+    "_postman_id": "satsflow-collection",
+    "name": "Satsflow - P2P Bitcoin Trading",
+    "description": "Testes completos do fluxo de compra/venda de Bitcoin",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "BASE_URL",
+      "value": "localhost:8080",
+      "type": "string"
+    },
+    {
+      "key": "BUYER_ID",
+      "value": "550e8400-e29b-41d4-a716-446655440000",
+      "type": "string"
+    },
+    {
+      "key": "SELLER_ID",
+      "value": "660f9511-f30d-52b5-bc1d-25e6f4g5c7d8",
+      "type": "string"
+    },
+    {
+      "key": "ORDER_ID",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "AMOUNT_BRL",
+      "value": "1000",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "📌 SETUP - Leia Primeiro",
+      "item": [
+        {
+          "name": "README - Como Usar",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "https://github.com",
+              "protocol": "https",
+              "host": ["github", "com"]
+            },
+            "description": "FLUXO COMPLETO:\n\n1. Comprador: POST /orders (cria ordem)\n2. Vendedor: GET /orders/stream (recebe em tempo real - DEIXE ABERTO)\n3. Vendedor: POST /orders/{id}/accept (aceita ordem)\n4. Ambos: WS /chat/{id} (abrir em 2 abas diferentes)\n5. Chat: trocar mensagens em tempo real\n\nDica: Abra o Stream numa aba e deixe rodando enquanto testa!"
+          }
+        }
+      ]
+    },
+    {
+      "name": "1️⃣ COMPRADOR",
+      "item": [
+        {
+          "name": "📝 Criar Ordem de Compra",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const orderId = pm.response.json().id;",
+                  "    pm.environment.set('ORDER_ID', orderId);",
+                  "    console.log('✅ Ordem criada! ID: ' + orderId);",
+                  "    console.log('⚙️ ORDER_ID salvo nas variáveis');",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"buyerId\": \"{{BUYER_ID}}\",\n  \"amountBrl\": {{AMOUNT_BRL}}\n}"
+            },
+            "url": {
+              "raw": "http://{{BASE_URL}}/orders",
+              "protocol": "http",
+              "host": ["{{BASE_URL}}"],
+              "path": ["orders"]
+            },
+            "description": "Comprador cria uma ordem com um valor em BRL.\n\nO sistema automaticamente:\n- Busca o preço do BTC\n- Calcula a quantidade em BTC\n- Salva a ordem com status OPEN\n- Publica no Redis para o vendedor receber\n\n✅ Salva o ORDER_ID automaticamente!"
+          },
+          "response": []
+        },
+        {
+          "name": "📋 Listar Todas as Ordens",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://{{BASE_URL}}/orders",
+              "protocol": "http",
+              "host": ["{{BASE_URL}}"],
+              "path": ["orders"]
+            },
+            "description": "Retorna todas as ordens OPEN e MATCHED"
+          },
+          "response": []
+        },
+        {
+          "name": "🔍 Buscar Ordem por ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://{{BASE_URL}}/orders/{{ORDER_ID}}",
+              "protocol": "http",
+              "host": ["{{BASE_URL}}"],
+              "path": ["orders", "{{ORDER_ID}}"]
+            },
+            "description": "Busca uma ordem específica pelo ID"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "2️⃣ VENDEDOR",
+      "item": [
+        {
+          "name": "📡 Stream de Ordens Abertas (SSE) - DEIXE ABERTO!",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://{{BASE_URL}}/orders/stream",
+              "protocol": "http",
+              "host": ["{{BASE_URL}}"],
+              "path": ["orders", "stream"]
+            },
+            "description": "⚠️ IMPORTANTE: Deixe esta requisição aberta numa aba separada!\n\nVocê receberá:\n1. Todas as ordens OPEN existentes\n2. Novas ordens em tempo real quando criadas\n\nÉ um Server-Sent Events (SSE) stream.\n\nDica: Enquanto isso está rodando, crie uma nova ordem em outra aba e veja chegar aqui!"
+          },
+          "response": []
+        },
+        {
+          "name": "✅ Aceitar Ordem",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sellerId\": \"{{SELLER_ID}}\"\n}"
+            },
+            "url": {
+              "raw": "http://{{BASE_URL}}/orders/{{ORDER_ID}}/accept",
+              "protocol": "http",
+              "host": ["{{BASE_URL}}"],
+              "path": ["orders", "{{ORDER_ID}}", "accept"]
+            },
+            "description": "Vendedor aceita uma ordem.\n\nO que acontece:\n- Status da ordem muda de OPEN → MATCHED\n- Um sellerId é atribuído\n- Redis publica evento de matching\n- Chat fica disponível\n\nAgora ambos podem conversar!"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "3️⃣ CHAT WebSocket",
+      "item": [
+        {
+          "name": "💬 Chat - Comprador (ABA 1)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "ws://{{BASE_URL}}/chat/{{ORDER_ID}}",
+              "protocol": "ws",
+              "host": ["{{BASE_URL}}"],
+              "path": ["chat", "{{ORDER_ID}}"]
+            },
+            "description": "Abre uma conexão WebSocket para o chat.\n\n✅ Quando conectar:\n- Você recebe o histórico completo\n- Fica ouvindo novas mensagens em tempo real\n\n💬 Para enviar mensagem (JSON):\n{\n  \"senderId\": \"{{BUYER_ID}}\",\n  \"content\": \"Oi! Tudo bem? Qual o melhor preço?\"\n}\n\n⚠️ Use {{BUYER_ID}} se for comprador\n⚠️ Use {{SELLER_ID}} se for vendedor"
+          },
+          "response": []
+        },
+        {
+          "name": "💬 Chat - Vendedor (ABA 2)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "ws://{{BASE_URL}}/chat/{{ORDER_ID}}",
+              "protocol": "ws",
+              "host": ["{{BASE_URL}}"],
+              "path": ["chat", "{{ORDER_ID}}"]
+            },
+            "description": "Abre uma SEGUNDA conexão WebSocket (vendedor).\n\nDica: Abra em outra aba do Postman!\n\n💬 Para enviar mensagem:\n{\n  \"senderId\": \"{{SELLER_ID}}\",\n  \"content\": \"Oi! Está tudo bem! O preço é R$ 1000 conforme combinado\"\n}\n\n🔄 Ambas as abas:\n- Recebem histórico ao conectar\n- Recebem novas mensagens em tempo real\n- Podem enviar/receber simultaneamente"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "⚙️ UTILITÁRIOS",
+      "item": [
+        {
+          "name": "🏥 Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://{{BASE_URL}}/actuator/health",
+              "protocol": "http",
+              "host": ["{{BASE_URL}}"],
+              "path": ["actuator", "health"]
+            },
+            "description": "Verifica se a aplicação está rodando"
+          },
+          "response": []
+        },
+        {
+          "name": "🗑️ RESET - Gerar Novos UUIDs",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "https://www.uuidgenerator.net/",
+              "protocol": "https",
+              "host": ["www", "uuidgenerator", "net"]
+            },
+            "description": "Abra este link para gerar novos UUIDs se quiser testar com IDs diferentes"
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}
+
